@@ -1,15 +1,14 @@
 from __future__ import division
 
-import matplotlib.pyplot as plt
-import numpy as np
 import random
 import csv
 
 from matplotlib import animation
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy import ndimage
 from scipy import stats
 from scipy.spatial import ConvexHull
-
 
 
 #  Precalculate the valid moves for each compass direction NESW
@@ -18,8 +17,7 @@ moves = [np.array(move) for move in moves]
 
 def weighted_choice(weights):
 	'''
-	Given a list of numerical weights, return an index with 
-	probabiltiy weights[i]/sum(weights).
+	Given a list of numerical weights, return an index with weights[i]/sum(weights).
 	Adapted from http://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
 	'''
 	if all([w==0 for w in weights]):
@@ -179,6 +177,7 @@ class World(object):
 		levels = [cutoff]
 
 		plt.contour(X, Y, Z, levels=levels, linestyles="dashed", colors="k", linewidths=3, zorder=1000)
+
 
 class Environment(object):
 	'''
