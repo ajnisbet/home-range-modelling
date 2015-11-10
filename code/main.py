@@ -1,8 +1,8 @@
 import random
 
-from models import World, Environment, Animal
-
 import numpy as np
+
+from models import World, Environment, Animal
 
 
 def main():
