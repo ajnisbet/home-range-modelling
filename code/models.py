@@ -64,10 +64,9 @@ class World(object):
                 self.environment.update_scent()
                 self.environment.quality_global = self.environment.quality_basic**m1 + self.environment.quality_scent**m2
 
-
     def static_plot(self, convergence=False, quality_scent=False, quality_global=False, quality_basic=False, kde=False, history=False, history_scatter=False, location=False, convex_hull=False, save=False):
         '''
-        Plot a single figure.
+        Plot a single figure, with a whole bunch of different things to plot.
         Won't return until plot is closed.
         '''
 
@@ -77,50 +76,49 @@ class World(object):
 
         # Environment plots
         if quality_scent: 
-            self.environment.plot_quality_scent(fig)
+            self.environment.plot_quality_scent(fig, ax)
         if quality_basic: 
-            self.environment.plot_quality_basic(fig)
+            self.environment.plot_quality_basic(fig, ax)
         if quality_global:
-            self.environment.plot_quality_global(fig)
+            self.environment.plot_quality_global(fig, ax)
 
         # Animal plots
         for animal in self.animals:
             if history: 
-                animal.plot_history(fig)
+                animal.plot_history(fig, ax)
             if history_scatter: 
-                animal.plot_history_scatter(fig)
-
+                animal.plot_history_scatter(fig, ax)
 
         # Overall plots
         if kde:
-            self.plot_kde(fig) 
+            self.plot_kde(fig, ax) 
         if convex_hull:
-            self.plot_convex_hull(fig)
+            self.plot_convex_hull(fig, ax)
 
-        # Exoirt plot to a given file name
+        # Export plot to a given file name
         if save:
-            # plt.axes(frameon=False)
             ax.axes.get_yaxis().set_visible(False)
             ax.axes.get_xaxis().set_visible(False)
             fig.savefig(save, transparent=True, bbox_inches='tight')
 
-        # Sneakily plot a second plot of convergence of the method, for assessing quality of the simulation
+        # Sneakily create a second figure of animal centrod 
         if convergence:
-            fig2 = plt.figure()
-            self.plot_convergence(fig2)
+            self.plot_convergence()
 
         # Finnaly, display the plots
         plt.show()
 
-    def plot_convergence(self, fig):
+    def plot_convergence(self):
         '''
-        PLot the convergence of the separation of the animals
+        Plot the convergence of the separation of the animals
         as time goes on, for assessing the quiality of the simulation
         '''
 
         # Need multiple animals for convergence
         if len(self.animals) < 2:
-            return
+            raise Exception('Multiple animals are required for convergence plot')
+
+        fig, ax = plt.subplots()
 
         n_animals = len(self.animals)
         n_iter = len(self.animals[0].position_history)
@@ -133,22 +131,24 @@ class World(object):
             mean_distance =  np.mean([np.linalg.norm(centroid - p) for p in animal_positions])
             Y[i] = mean_distance
 
-        plt.plot(X, Y)
+        ax.plot(X, Y)
 
-    def plot_convex_hull(self, fig):
+        return fig, ax
+
+    def plot_convex_hull(self, fig, ax):
         '''
         Plot minimum convex polygon of animal locations
         '''
         points = np.vstack([a.position_history for a in self.animals])
         hull = ConvexHull(points)
         for simplex in hull.simplices:
-            plt.plot(points[simplex,0], points[simplex,1], 'k--', lw=2)
+            ax.plot(points[simplex,0], points[simplex,1], 'k--', lw=2)
 
-    def plot_kde(self, fig):
+
+    def plot_kde(self, fig, ax):
         '''
         Plot Kernel Density Estimaion of animal locations, with a 5 percent cutoff.
         '''
-
 
         hist = np.vstack([np.array([0, 0]), self.environment.size-1])
 
@@ -174,7 +174,7 @@ class World(object):
         cutoff = (max(P) - min(P)) * 0.05 + min(P)
         levels = [cutoff]
 
-        plt.contour(X, Y, Z, levels=levels, linestyles="dashed", colors="k", linewidths=3, zorder=1000)
+        ax.contour(X, Y, Z, levels=levels, linestyles="dashed", colors="k", linewidths=3, zorder=1000)
 
 
 class Environment(object):
@@ -201,8 +201,6 @@ class Environment(object):
         self.centre_y = self.centre[1]
         self.origin = np.array([0, 0])
         self.quality_scent = np.zeros(shape=self.size)
-
-
 
     def add_no_quality(self):
         '''
@@ -239,7 +237,7 @@ class Environment(object):
         max_d_from_centre = np.linalg.norm(self.origin - self.centre)
         alpha = weight_max / max_d_from_centre
 
-        # iterate over all coordinates
+        # Iterate over all coordinates
         for x, y in np.ndindex(self.quality_basic.shape):
             position = np.array([x, y])
             d_from_centre = np.linalg.norm(position - self.centre)
@@ -277,15 +275,14 @@ class Environment(object):
 
         self.quality_scent = new_quality_scent / aP
 
+    def plot_quality_basic(self, fig, ax):
+        im = ax.imshow(self.quality_basic.T, cmap=plt.cm.Greens)
 
-    def plot_quality_basic(self, fig):
-        im = plt.imshow(self.quality_basic.T, cmap=plt.cm.Greens)
+    def plot_quality_scent(self, fig, ax):
+        im = ax.imshow(self.quality_scent.T, cmap=plt.cm.Greens)
 
-    def plot_quality_scent(self, fig):
-        im = plt.imshow(self.quality_scent.T, cmap=plt.cm.Greens)
-
-    def plot_quality_global(self, fig):
-        im = plt.imshow(self.quality_global.T, cmap=plt.cm.Greens)
+    def plot_quality_global(self, fig, ax):
+        im = ax.imshow(self.quality_global.T, cmap=plt.cm.Greens)
 
 
 class Animal(object):
@@ -303,35 +300,33 @@ class Animal(object):
         '''
         Move the animal based on the quiality of its environment
         '''
-
-        # get adjacent qualities
+        # Get adjacent qualities
         adjacent_positions = [self.position + move for move in moves]
         adjacent_qualities = [environment.quality_global[tuple(p)]**m for p in adjacent_positions]
         move_index = weighted_choice(adjacent_qualities)
 
-        # update animal position 
+        # Update animal position 
         self.position = self.position + moves[move_index]
         self.x, self.y = tuple(self.position)
         self.position_history = np.vstack((self.position_history, self.position))
 
-
-    def plot_history(self, fig):
+    def plot_history(self, fig, ax):
         '''
         Line of walk
         '''
         X = self.position_history[:, 0]
         Y = self.position_history[:, 1]
-        plt.plot(X, Y, 'b', alpha=0.15, lw=0.5)
+        ax.plot(X, Y, 'b', alpha=0.15, lw=0.5)
 
-    def plot_location(self, fig):
+    def plot_location(self, fig, ax):
         X, Y = tuple(self.position_history)
-        plt.scatter(X, Y, c='r', s=50, marker='o', zorder=2000)
+        ax.scatter(X, Y, c='r', s=50, marker='o', zorder=2000)
 
-    def plot_history_scatter(self, fig):
+    def plot_history_scatter(self, fig, ax):
         '''
         Scatter plot of previous positions
         '''
         X = self.position_history[:, 0]
         Y = self.position_history[:, 1]
-        plt.scatter(X, Y, c="b", s=10, alpha=0.05, marker="s")
+        ax.scatter(X, Y, c="b", s=10, alpha=0.05, marker="s")
 

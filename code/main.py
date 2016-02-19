@@ -20,7 +20,7 @@ def main():
     n_animals = 10
     m = 5 # quality exponent weight
 
-    # Make a world object, which contains the animals
+    # Make a world object, which contains the animals and the environment
     world = World(environment_size, n_animals)
 
     # Initialise the environment
