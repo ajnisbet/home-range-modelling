@@ -17,7 +17,7 @@ moves = [np.array(move) for move in moves]
 
 def weighted_choice(weights):
     '''
-    Given a list of numerical weights, return an index with weights[i]/sum(weights).
+    Given a list of numerical weights, return an index with probability weights[i]/sum(weights).
     Adapted from http://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
     '''
     if all([w==0 for w in weights]):
@@ -29,10 +29,9 @@ def weighted_choice(weights):
         if rnd < 0:
             return i
 
-def normalise_array(values):
+def normalise(values):
     '''
-    Given an input array of numericals, returns the
-    array scaled between 1 and 0
+    Returns the input array scaled between 1 and 0
     '''
     flattened_values = values.flatten()
     values -= min(flattened_values)
@@ -46,7 +45,7 @@ class World(object):
     '''
     def __init__(self, environment_size, n_animals):
         self.environment = Environment(environment_size)
-        self.animals = [Animal(self.environment) for i in xrange(n_animals)]
+        self.animals = [Animal(self.environment.centre) for i in xrange(n_animals)]
 
     def update(self, kind, n_iter=1, m=1, m1=1, m2=1):
         '''
@@ -149,13 +148,13 @@ class World(object):
         '''
         Plot Kernel Density Estimaion of animal locations, with a 5 percent cutoff.
         '''
-
+        cutoff = 0.05
         hist = np.vstack([np.array([0, 0]), self.environment.size-1])
 
         for animal in self.animals:
             hist = np.vstack([hist, animal.position_history])
 
-        hist = hist[::20]
+        hist = hist[::20]  # Using all the points destroys performance
 
         m1 = hist[:, 0]
         m2 = hist[:, 1]
@@ -171,7 +170,7 @@ class World(object):
         P = kernel(positions)
         Z = np.reshape(P.T, X.shape)
 
-        cutoff = (max(P) - min(P)) * 0.05 + min(P)
+        cutoff = (max(P) - min(P)) * cutoff + min(P)
         levels = [cutoff]
 
         ax.contour(X, Y, Z, levels=levels, linestyles="dashed", colors="k", linewidths=3, zorder=1000)
@@ -196,7 +195,7 @@ class Environment(object):
         self.size_y = self.size[1]
         self.x_max = self.size_x - 1
         self.y_max = self.size_y - 1        
-        self.centre = (self.size-1)/2 
+        self.centre = (self.size - 1) / 2 
         self.centre_x = self.centre[0]
         self.centre_y = self.centre[1]
         self.origin = np.array([0, 0])
@@ -223,7 +222,7 @@ class Environment(object):
         gaussian_coefficient = 0.1 * np.average(self.size)
         noise = np.random.random(self.size)
         landscape = ndimage.gaussian_filter(noise, gaussian_coefficient)
-        landscape = normalise_array(landscape)
+        landscape = normalise(landscape)
         self.quality_basic = landscape
         self.quality_global = self.quality_basic
 
@@ -289,12 +288,11 @@ class Animal(object):
     '''
     Animal with position in environment
     '''
-    def __init__(self, environment):
-        self.position = np.array(environment.centre, dtype=int) 
+    def __init__(self, position):
+        self.position = np.array(position, dtype=int) 
         self.x = self.position[0]
         self.y = self.position[1]
         self.position_history = self.position
-        self.subjective_environmnet = Environment(environment.size)
 
     def move(self, environment, m=1):
         '''
